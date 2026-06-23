@@ -26,7 +26,7 @@ export const calculateFootprint = (data) => {
   if (data.carKm) transport += Number(data.carKm) * EMISSION_FACTORS.transport.carKm;
   if (data.flights) transport += Number(data.flights) * EMISSION_FACTORS.transport.flights;
 
-  let food = EMISSION_FACTORS.food[data.diet || 'average'];
+  let food = EMISSION_FACTORS.food[data.diet] ?? EMISSION_FACTORS.food['average'];
 
   let energy = 0;
   if (data.electricityKwh) energy += Number(data.electricityKwh) * EMISSION_FACTORS.energy.electricity_kwh;

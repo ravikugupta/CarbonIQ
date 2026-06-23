@@ -6,6 +6,22 @@ import { Leaf, AlertCircle, ArrowRight, TrendingDown } from 'lucide-react';
 
 const COLORS = ['#23A65C', '#10b981', '#34d399', '#6ee7b7'];
 
+// Accessible custom tooltip for charts
+const ChartTooltipContent = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div
+        className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm"
+        role="tooltip"
+      >
+        <p className="text-gray-400">{label}</p>
+        <p className="text-white font-semibold">{payload[0].value} kg CO₂e</p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function Dashboard() {
   const userData = getUserData();
   const result = userData?.latestResult;
@@ -34,27 +50,30 @@ export default function Dashboard() {
     ].filter(d => d.value > 0);
   }, [result]);
 
-  // Mock historical data for the trend chart, placing the current result as the latest month
+  // Historical trend — only show if we have enough stored months, otherwise hide chart
   const trendData = useMemo(() => {
     if (!result) return [];
-    const base = result.total;
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-    return months.map((m, i) => ({
-      name: m,
-      co2: i === 5 ? base : Math.round(base * (1 + (5 - i) * 0.05)), // fake downward trend
+    const history = userData?.history;
+    if (!history || history.length < 2) return [];
+    return history.slice(-6).map(entry => ({
+      name: new Date(entry.date).toLocaleDateString('en-IN', { month: 'short' }),
+      co2: entry.total,
     }));
-  }, [result]);
+  }, [result, userData]);
 
   if (!result) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
-        <div className="p-6 bg-gray-800 rounded-full">
+        <div className="p-6 bg-gray-800 rounded-full" aria-hidden="true">
           <Leaf size={48} className="text-gray-500" />
         </div>
         <h2 className="text-2xl font-bold">No data found</h2>
         <p className="text-gray-400">Complete the calculator to see your carbon dashboard.</p>
-        <Link to="/calculator" className="flex items-center gap-2 px-6 py-3 bg-primaryGreen text-white rounded-lg font-medium hover:bg-green-600 transition-colors">
-          Go to Calculator <ArrowRight size={18} />
+        <Link
+          to="/calculator"
+          className="flex items-center gap-2 px-6 py-3 bg-primaryGreen text-white rounded-lg font-medium hover:bg-green-600 transition-colors"
+        >
+          Go to Calculator <ArrowRight size={18} aria-hidden="true" />
         </Link>
       </div>
     );
@@ -75,10 +94,16 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Score Card */}
-        <div className="col-span-1 bg-[#0f1915] border border-gray-800 rounded-xl p-6 flex flex-col justify-center items-center relative overflow-hidden shadow-xl">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primaryGreen to-emerald-400" />
-          <h3 className="text-gray-400 text-sm font-medium uppercase tracking-wider mb-2">Carbon Grade</h3>
-          <div className={`text-7xl font-bold ${scoreData.color} drop-shadow-[0_0_15px_rgba(255,255,255,0.1)] mb-2`}>
+        <div
+          className="col-span-1 bg-[#0f1915] border border-gray-800 rounded-xl p-6 flex flex-col justify-center items-center relative overflow-hidden shadow-xl"
+          aria-label={`Carbon grade: ${scoreData.grade}, ${scoreData.total.toLocaleString()} kg CO₂e per year`}
+        >
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primaryGreen to-emerald-400" aria-hidden="true" />
+          <h3 className="text-gray-400 text-sm font-medium uppercase tracking-wider mb-2" id="grade-label">Carbon Grade</h3>
+          <div
+            className={`text-7xl font-bold ${scoreData.color} drop-shadow-[0_0_15px_rgba(255,255,255,0.1)] mb-2`}
+            aria-labelledby="grade-label"
+          >
             {scoreData.grade}
           </div>
           <div className="text-center">
@@ -92,16 +117,20 @@ export default function Dashboard() {
           <div className="flex-1">
             <h3 className="text-xl font-bold text-white mb-4">India Comparison</h3>
             <p className="text-gray-300 text-lg leading-relaxed">
-              You are emitting <span className={`font-bold ${isBelowAvg ? 'text-green-400' : 'text-red-400'}`}>{Math.abs(diff).toLocaleString()} kg</span> {isBelowAvg ? 'less' : 'more'} than India's average of 1,900 kg per year.
+              You are emitting{' '}
+              <span className={`font-bold ${isBelowAvg ? 'text-green-400' : 'text-red-400'}`}>
+                {Math.abs(diff).toLocaleString()} kg
+              </span>
+              {' '}{isBelowAvg ? 'less' : 'more'} than India's average of 1,900 kg per year.
             </p>
             {isBelowAvg ? (
-              <div className="mt-4 flex items-center gap-2 text-green-400 bg-green-400/10 px-4 py-2 rounded-lg inline-flex">
-                <TrendingDown size={20} />
-                <span className="font-medium">Great job! You're below average!</span>
+              <div className="mt-4 flex items-center gap-2 text-green-400 bg-green-400/10 px-4 py-2 rounded-lg inline-flex" role="status">
+                <TrendingDown size={20} aria-hidden="true" />
+                <span className="font-medium">Great job! You're below average.</span>
               </div>
             ) : (
-              <div className="mt-4 flex items-center gap-2 text-yellow-400 bg-yellow-400/10 px-4 py-2 rounded-lg inline-flex">
-                <AlertCircle size={20} />
+              <div className="mt-4 flex items-center gap-2 text-yellow-400 bg-yellow-400/10 px-4 py-2 rounded-lg inline-flex" role="status">
+                <AlertCircle size={20} aria-hidden="true" />
                 <span className="font-medium">Room for improvement! Check Insights.</span>
               </div>
             )}
@@ -110,61 +139,97 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Trend Chart */}
-        <div className="bg-[#0f1915] border border-gray-800 rounded-xl p-6 shadow-xl">
-          <h3 className="text-lg font-bold text-white mb-6">6-Month Trend (kg CO₂e)</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                <XAxis dataKey="name" stroke="#9ca3af" tickLine={false} axisLine={false} />
-                <YAxis stroke="#9ca3af" tickLine={false} axisLine={false} />
-                <RechartsTooltip 
-                  contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '8px' }}
-                  itemStyle={{ color: '#fff' }}
-                />
-                <Line type="monotone" dataKey="co2" stroke="#23A65C" strokeWidth={3} dot={{ fill: '#23A65C', strokeWidth: 2 }} activeDot={{ r: 8 }} />
-              </LineChart>
-            </ResponsiveContainer>
+        {/* Trend Chart — only shown when real history exists */}
+        {trendData.length >= 2 ? (
+          <div className="bg-[#0f1915] border border-gray-800 rounded-xl p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-white mb-6">Historical Trend (kg CO₂e)</h3>
+            <div
+              className="h-64"
+              role="img"
+              aria-label={`Line chart showing your CO₂ emissions over ${trendData.length} months. Latest: ${trendData[trendData.length - 1]?.co2} kg.`}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                  <XAxis dataKey="name" stroke="#9ca3af" tickLine={false} axisLine={false} />
+                  <YAxis stroke="#9ca3af" tickLine={false} axisLine={false} />
+                  <RechartsTooltip content={<ChartTooltipContent />} />
+                  <Line type="monotone" dataKey="co2" stroke="#23A65C" strokeWidth={3} dot={{ fill: '#23A65C', strokeWidth: 2 }} activeDot={{ r: 8 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Screen-reader-accessible data table */}
+            <table className="sr-only">
+              <caption>CO₂ emissions trend</caption>
+              <thead><tr><th>Month</th><th>kg CO₂e</th></tr></thead>
+              <tbody>
+                {trendData.map(row => (
+                  <tr key={row.name}><td>{row.name}</td><td>{row.co2}</td></tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
+        ) : (
+          <div className="bg-[#0f1915] border border-gray-800 rounded-xl p-6 shadow-xl flex flex-col justify-center items-center text-center gap-3">
+            <TrendingDown size={36} className="text-gray-600" aria-hidden="true" />
+            <h3 className="text-lg font-bold text-white">Track Your Progress</h3>
+            <p className="text-gray-400 text-sm">Recalculate monthly to see your emissions trend over time.</p>
+          </div>
+        )}
 
         {/* Breakdown Chart */}
         <div className="bg-[#0f1915] border border-gray-800 rounded-xl p-6 shadow-xl">
           <h3 className="text-lg font-bold text-white mb-6">Monthly Breakdown</h3>
           <div className="h-64 flex">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <RechartsTooltip 
-                  contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '8px', color: '#fff' }}
-                  itemStyle={{ color: '#fff' }}
-                  formatter={(value) => [`${value} kg`, 'Emissions']}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex flex-col justify-center space-y-3 w-1/3">
+            <div
+              className="flex-1"
+              role="img"
+              aria-label={`Pie chart of monthly emissions: ${pieData.map(d => `${d.name} ${d.value} kg`).join(', ')}`}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip
+                    contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '8px', color: '#fff' }}
+                    itemStyle={{ color: '#fff' }}
+                    formatter={(value) => [`${value} kg`, 'Emissions']}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-col justify-center space-y-3 w-1/3" aria-hidden="true">
               {pieData.map((entry, index) => (
                 <div key={entry.name} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
                   <span className="text-sm text-gray-300">{entry.name}</span>
+                  <span className="text-sm text-gray-400 ml-auto">{entry.value} kg</span>
                 </div>
               ))}
             </div>
           </div>
+          {/* Accessible data table */}
+          <table className="sr-only">
+            <caption>Monthly CO₂ emissions breakdown</caption>
+            <thead><tr><th>Category</th><th>kg CO₂e</th></tr></thead>
+            <tbody>
+              {pieData.map(row => (
+                <tr key={row.name}><td>{row.name}</td><td>{row.value}</td></tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
